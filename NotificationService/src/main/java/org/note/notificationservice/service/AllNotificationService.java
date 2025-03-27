@@ -21,19 +21,19 @@ import java.util.Base64;
 @Service
 public class AllNotificationService {
 
-    @Value("${sendgrid.from.email:manish.moryani@hashstudioz.com}")
+    @Value("${sendgrid.from.email:}")
     private String fromEmail;
 
     @Autowired
     private SendGrid sendGrid;
 
-    @Value("${twilio.account.sid:AC32563a7ca2487f847152170f377da876}")
+    @Value("${twilio.account.sid:}")
     private String twilioAccount;
 
-    @Value("${twilio.auth.token:4a91f0d15e1c741605f56083b394db7e}")
+    @Value("${twilio.auth.token:}")
     private String twilioAuthToken;
 
-    @Value("${twilio.from.number:+12513877564}")
+    @Value("${twilio.from.number:}")
     private String twilioFromNumber;
 
     public void sendEmail(String toEmail, String subject, String body) throws IOException {
