@@ -1,6 +1,6 @@
 package org.note.notesapplication.Service;
 
-import org.note.notesapplication.DTO.userResponse;
+import org.note.notesapplication.model.userResponse;
 import org.note.notesapplication.Entity.Notes;
 import org.note.notesapplication.Entity.User;
 import org.springframework.beans.factory.annotation.Autowired;

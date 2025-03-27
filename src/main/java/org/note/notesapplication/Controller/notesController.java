@@ -1,6 +1,6 @@
 package org.note.notesapplication.Controller;
 
-import org.note.notesapplication.DTO.userResponse;
+import org.note.notesapplication.model.userResponse;
 import org.note.notesapplication.Service.notesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

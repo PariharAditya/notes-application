@@ -9,8 +9,9 @@ import net.sf.jasperreports.engine.type.TextAdjustEnum;
 import net.sf.jasperreports.engine.type.VerticalTextAlignEnum;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleHtmlExporterOutput;
-import org.note.notesapplication.DTO.userResponse;
+import org.note.notesapplication.model.userResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -24,6 +25,7 @@ public class ReportService {
     @Autowired
     private notesService notesService;
 
+    @Cacheable(value = "notesReport", key = "#username + '-' + #reportFormat")
     public byte[] generateNotesReport(String username, String reportFormat) throws JRException {
         // Get notes for the user
         List<userResponse> notes = notesService.getAllNotesByUser(username);

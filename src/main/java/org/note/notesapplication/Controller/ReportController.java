@@ -1,23 +1,26 @@
 package org.note.notesapplication.Controller;
 
+import lombok.extern.slf4j.Slf4j;
 import org.note.notesapplication.Service.ReportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.io.IOException;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/users/{username}/reports")
+@Slf4j
 public class ReportController {
 
     @Autowired
     private ReportService reportService;
 
-    @GetMapping("/notes/{format}")
+    @GetMapping("/get-notes/{format}")
     public ResponseEntity<byte[]> generateReport(
             @PathVariable String username,
             @PathVariable String format) {
@@ -42,7 +45,7 @@ public class ReportController {
                     .body(reportContent);
 
         } catch (Exception e) {
-             e.printStackTrace();
+            log.info("Error generating report: {}", e.getMessage());
             return ResponseEntity.status(500)
                     .body(("Error generating report: " + e.getMessage()).getBytes());
         }
