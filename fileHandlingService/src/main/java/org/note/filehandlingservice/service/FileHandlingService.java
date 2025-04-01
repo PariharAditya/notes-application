@@ -24,31 +24,61 @@ public class FileHandlingService {
     private String notesTopic;
 
     public boolean processFile(String userName, MultipartFile file) throws IOException {
-
-        String filename = file.getOriginalFilename();
-        String content = readFileContent(file);
-        log.info("{} : {}", filename, content);
-
-
-        //TODO for now kept simple later we've Other validation checks Pending
-
-        if (filename != null && !filename.isEmpty()) {
-            FileMessage fileMessage = new FileMessage();
-            fileMessage.setTitle(fileMessage.getTitle());
-            fileMessage.setContent(fileMessage.getContent());
-            fileMessage.setUsername(userName);
-
-            System.out.println("Sending message: " + fileMessage);
-
-            kafkaTemplate.send(notesTopic, fileMessage);
+        // Validate input
+        if (file.isEmpty() || userName == null) {
+            log.error("File is empty or username is null");
+            return false;
         }
 
+        // Read file content
+        String dataFromFile = readFileContent(file);
+        log.info("File content: {}", dataFromFile);
+
+        // Parse file content
+        FileMessage fileMessage = parseFileContent(dataFromFile, userName);
+
+        kafkaTemplate.send(notesTopic, fileMessage);
+        log.info("Message sent to Kafka: {}", fileMessage);
+
         return true;
+
+    }
+
+    private FileMessage parseFileContent(String fileContent, String userName) {
+        // Normalize line breaks and trim
+        fileContent = fileContent.trim().replaceAll("\r\n", "\n");
+
+        // Split content into lines
+        String[] lines = fileContent.split("\n");
+
+        // Default values
+        String title = "Untitled";
+        StringBuilder content = new StringBuilder();
+
+        // Parse title and content
+        for (String line : lines) {
+            line = line.trim().toLowerCase();
+            if (line.startsWith("title:")) {
+                title = line.substring(6).trim();
+            } else if (line.startsWith("content:")) {
+                content.append(line.substring(8).trim());
+            } else if (!line.startsWith("title:") && !line.startsWith("content:")) {
+                content.append(line).append("\n");
+            }
+        }
+
+        // Create and return FileMessage
+        FileMessage fileMessage = new FileMessage();
+        fileMessage.setTitle(title);
+        fileMessage.setContent(content.toString().trim());
+        fileMessage.setUsername(userName);
+
+        return fileMessage;
     }
 
     public String readFileContent(MultipartFile file) throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()));
-        return reader.lines().collect(Collectors.joining("\n"));
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream()))) {
+            return reader.lines().collect(Collectors.joining("\n"));
+        }
     }
-
 }

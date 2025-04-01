@@ -20,7 +20,7 @@ public class ReportController {
     @Autowired
     private ReportService reportService;
 
-    @GetMapping("/get-notes/{format}")
+    @GetMapping("/notes/{format}")
     public ResponseEntity<byte[]> generateReport(
             @PathVariable String username,
             @PathVariable String format) {

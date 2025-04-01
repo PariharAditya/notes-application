@@ -1,5 +1,6 @@
 package org.note.notesapplication.Service;
 
+import lombok.extern.slf4j.Slf4j;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import net.sf.jasperreports.engine.design.*;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class ReportService {
 
@@ -75,7 +77,7 @@ public class ReportService {
             }
             throw new IllegalArgumentException("Format not supported: " + reportFormat);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.info("{}", e.getMessage());
             throw e;
         }
     }
