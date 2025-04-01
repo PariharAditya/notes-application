@@ -33,13 +33,13 @@ public class NotificationServiceAPIway {
     @Autowired
     private SendGrid sendGrid;
 
-    @Value("${twilio.account.sid:}")
+    @Value("${twilio.account.sid:AC32563a7ca2487f847152170f377da876}")
     private String twilioAccount;
 
-    @Value("${twilio.auth.token:}")
+    @Value("${twilio.auth.token:4a91f0d15e1c741605f56083b394db7e}")
     private String twilioAuthToken;
 
-    @Value("${twilio.from.number:}")
+    @Value("${twilio.from.number:+12513877564}")
     private String twilioFromNumber;
 
     public void sendEmail(String toEmail, String subject, String body) throws IOException {

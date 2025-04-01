@@ -32,7 +32,7 @@ public class AutomatedReportSending {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-//    @Scheduled(cron = "0 */5 * * * *")
+    // @Scheduled(cron = "0 */5 * * * *")
     public void sendReportWithNotification() {
         List<User> users = mongoTemplate.findAll(User.class);
 

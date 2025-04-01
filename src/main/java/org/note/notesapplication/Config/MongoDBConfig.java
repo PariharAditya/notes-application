@@ -15,7 +15,7 @@ public class MongoDBConfig {
 
     @Bean
     public MongoClient mongoClient() {
-        String connectionUri = "";
+        String connectionUri = "mongodb+srv://adityapariharparihar:pariharDB50@cluster0.bv50w.mongodb.net/notes-application?retryWrites=true&w=majority";
         System.out.println("MongoDB URI: " + connectionUri);
         System.out.println("Database name: " + databaseName);
 
