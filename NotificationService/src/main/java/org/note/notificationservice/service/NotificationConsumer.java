@@ -16,6 +16,7 @@ public class NotificationConsumer {
     public void handleEmailNotification(EmailRequest emailRequest) {
         try {
             notificationType.sendEmail(emailRequest.getToEmail(), emailRequest.getSubject(), emailRequest.getBody());
+            System.out.println("Email sent to: " + emailRequest.getToEmail() + " with subject: " + emailRequest.getSubject());
         } catch (Exception e) {
             // Log error and potentially retry
             System.err.println("Failed to send email: " + e.getMessage());
@@ -25,6 +26,15 @@ public class NotificationConsumer {
     @RabbitListener(queues = "Email-notification-with-docs")
     public void handleEmailNotificationWithDocs(EmailRequest emailRequest) {
         try {
+            // Validate filename before processing
+            if (emailRequest.getFileName() != null) {
+                String sanitizedFileName = emailRequest.getFileName().replaceAll("[\\r\\n\\t\\f\\v]", "")
+                        .replaceAll("[\\p{Cntrl}]", "")
+                        .trim();
+                emailRequest.setFileName(sanitizedFileName);
+            }
+
+            assert emailRequest.getFileName() != null;
             notificationType.sendWithDocs (
                 emailRequest.getToEmail(),
                 emailRequest.getSubject(),

@@ -1,5 +1,6 @@
 package org.note.notesapplication.Service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
@@ -13,9 +14,11 @@ import net.sf.jasperreports.export.SimpleHtmlExporterOutput;
 import org.note.notesapplication.model.userResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,30 +30,41 @@ public class ReportService {
     @Autowired
     private notesService notesService;
 
+    @Autowired
+    private Environment env;
+
+    private boolean isDockerEnvironment = false;
+
+    @PostConstruct
+    public void init() {
+        // Check if running in Docker environment
+        isDockerEnvironment = Arrays.asList(env.getActiveProfiles()).contains("docker");
+        if (isDockerEnvironment) {
+            // Configure JasperReports for Docker
+            System.setProperty("net.sf.jasperreports.compiler.temp.dir", "/tmp");
+            System.setProperty("net.sf.jasperreports.compiler.xml.validation", "false");
+            log.info("Configured JasperReports for Docker environment");
+
+            // Log all system properties for debugging
+            System.getProperties().forEach((k, v) -> {
+                if (k.toString().contains("jasper") || k.toString().contains("report")) {
+                    log.info("Property: {} = {}", k, v);
+                }
+            });
+        }
+    }
+
     @Cacheable(value = "notesReport", key = "#username + '-' + #reportFormat")
     public byte[] generateNotesReport(String username, String reportFormat) throws JRException {
-        // Get notes for the user
-        List<userResponse> notes = notesService.getAllNotesByUser(username);
-
-        /*
-        we need dataSource, params(DB columns) and data-field to write these things
-
-        When you generate a report with JasperReports, the following steps occur:
-        Data Collection: You gather the data (e.g., from a database).
-        Report Design: Either load a pre-made .jrxml template or create it dynamically in code.
-        Filling the Report: Combine the data and design to produce a JasperPrint object.
-        Exporting the Report: Convert the JasperPrint into a specific format (PDF, HTML, etc.).
-        This is where byte[] comes in – the report is exported as a byte[].
-        */
-
         try {
-            // Create a dynamically generated report design
-            JasperDesign jasperDesign = createReportDesign();
+            log.info("Starting report generation for user {} in format {}", username, reportFormat);
+            long startTime = System.currentTimeMillis();
 
-            // Compile the report design
-            JasperReport jasperReport = JasperCompileManager.compileReport(jasperDesign);
+            // Get notes for the user
+            List<userResponse> notes = notesService.getAllNotesByUser(username);
+            log.info("Retrieved {} notes for user {}", notes.size(), username);
 
-            System.out.println("Successfully compiled report template");
+            JasperPrint jasperPrint;
 
             // Create data source
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(notes);
@@ -60,27 +74,118 @@ public class ReportService {
             parameters.put("username", username);
             parameters.put("createdBy", "Notes Application");
 
-            // Fill report
-            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            // Create a dynamically generated report design
+            JasperDesign jasperDesign = createReportDesign();
+
+            // Compile the report design - with better error handling
+            try {
+                // Compile the report design
+                log.info("Compiling report design...");
+                JasperReport jasperReport = JasperCompileManager.compileReport(jasperDesign);
+                log.info("Successfully compiled report template");
+
+                // Fill report
+                jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            } catch (JRException e) {
+                log.error("Error compiling or filling report: {}", e.getMessage(), e);
+
+                // If in Docker and failing, use a simpler approach
+                if (isDockerEnvironment) {
+                    log.info("Using simplified report generation for Docker environment");
+                    // Use a simpler approach that might work better in Docker
+                    jasperPrint = createSimplifiedReport(notes, username);
+                } else {
+                    throw e; // Re-throw if not in Docker
+                }
+            }
 
             // Export based on format
+            byte[] reportBytes;
             switch (reportFormat.toLowerCase()) {
                 case "pdf":
-                    return JasperExportManager.exportReportToPdf(jasperPrint);
+                    reportBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+                    break;
                 case "html":
                     ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
                     HtmlExporter exporter = new HtmlExporter();
                     exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
                     exporter.setExporterOutput(new SimpleHtmlExporterOutput(outputStream));
                     exporter.exportReport();
-                    return outputStream.toByteArray();
+                    reportBytes = outputStream.toByteArray();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Format not supported: " + reportFormat);
             }
-            throw new IllegalArgumentException("Format not supported: " + reportFormat);
+            log.info("Report generation time for {}: {} ms", reportFormat, System.currentTimeMillis() - startTime);
+            return reportBytes;
         } catch (Exception e) {
-            log.info("{}", e.getMessage());
+            log.error("Error generating report: {}", e.getMessage(), e);
             throw e;
         }
     }
+
+    /**
+     * Creates a simplified JasperPrint for Docker environment where complex compilation may fail
+     */
+    private JasperPrint createSimplifiedReport(List<userResponse> notes, String username) throws JRException {
+        // Create a very simple JasperDesign that should compile even in restricted environments
+        JasperDesign design = new JasperDesign();
+        design.setName("Simple_Notes_Report");
+        design.setPageWidth(595);
+        design.setPageHeight(842);
+        design.setColumnWidth(555);
+
+        // Define fields
+        JRDesignField titleField = new JRDesignField();
+        titleField.setName("title");
+        titleField.setValueClass(String.class);
+        design.addField(titleField);
+
+        JRDesignField contentField = new JRDesignField();
+        contentField.setName("content");
+        contentField.setValueClass(String.class);
+        design.addField(contentField);
+
+        // Create title band
+        JRDesignBand titleBand = new JRDesignBand();
+        titleBand.setHeight(30);
+
+        // Add a simple title text
+        JRDesignStaticText titleText = new JRDesignStaticText();
+        titleText.setText("Notes Report for " + username);
+        titleText.setX(0);
+        titleText.setY(0);
+        titleText.setWidth(555);
+        titleText.setHeight(30);
+        titleBand.addElement(titleText);
+
+        design.setTitle(titleBand);
+
+        // Create detail band with just the note title
+        JRDesignBand detailBand = new JRDesignBand();
+        detailBand.setHeight(20);
+
+        JRDesignTextField titleField1 = new JRDesignTextField();
+        titleField1.setX(0);
+        titleField1.setY(0);
+        titleField1.setWidth(555);
+        titleField1.setHeight(20);
+
+        JRDesignExpression titleExpression = new JRDesignExpression();
+        titleExpression.setText("$F{title}");
+        titleField1.setExpression(titleExpression);
+        detailBand.addElement(titleField1);
+
+        ((JRDesignSection) design.getDetailSection()).addBand(detailBand);
+
+        // Compile this simpler design
+        JasperReport report = JasperCompileManager.compileReport(design);
+
+        // Create data source and fill
+        JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(notes);
+        return JasperFillManager.fillReport(report, new HashMap<>(), dataSource);
+    }
+
     private JasperDesign createReportDesign() throws JRException {
         // Define the cream color
         java.awt.Color headerColor = new java.awt.Color(242, 238, 225); // Slightly darker for headers
@@ -240,7 +345,7 @@ public class ReportService {
         detailBand.addElement(contentField1);
 
         // Add detail band to design
-        ((JRDesignSection)jasperDesign.getDetailSection()).addBand(detailBand);
+        ((JRDesignSection) jasperDesign.getDetailSection()).addBand(detailBand);
 
         // Create page footer band
         JRDesignBand pageFooterBand = new JRDesignBand();

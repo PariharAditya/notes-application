@@ -2,11 +2,11 @@ services:
   rabbitmq:
     image: 'rabbitmq:latest'
     environment:
-      - 'RABBITMQ_DEFAULT_PASS=secret'
       - 'RABBITMQ_DEFAULT_USER=myuser'
+      - 'RABBITMQ_DEFAULT_PASS=secret'
     ports:
-      - '5672'
-
+      - '5672:5672'
+      - '15672:15672'
 
   broker:
     image: apache/kafka:latest
@@ -30,3 +30,95 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+  redis:
+    image: redis/redis-stack:latest
+    ports:
+      - '6379:6379'
+      - '8001:8001'
+    command: [ "/entrypoint.sh", "./redis-stack.conf" ]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+    volumes:
+      - redis_data:/data
+
+  discovery-server:
+    build: ./discoveryServer
+    ports:
+      - '8761:8761'
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  api-gateway:
+    build: ./apiGateway
+    ports:
+      - '8181:8181'
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    environment:
+      - SPRING_APPLICATION_NAME=apiGateway
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+
+  notes-application:
+    build: ./
+    container_name: notes-application
+    hostname: notes-application
+    ports:
+      - '8080:8080'
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: [ "java", "-Dspring.profiles.active=docker", "-jar", "/app/notes-application.jar" ]
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_NAME=NotesApplication
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=broker:29092
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+    volumes:
+      - /tmp/jasper-reports:/tmp
+
+  file-service:
+    build: ./fileHandlingService
+    ports:
+      - '8082:8082'
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    environment:
+      - SPRING_APPLICATION_NAME=fileHandlingService
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=broker:29092
+
+  notification-service:
+    build: ./NotificationService
+    ports:
+      - '8081:8081'
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment:
+      - SPRING_APPLICATION_NAME=NotificationService
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_USERNAME=myuser
+      - SPRING_RABBITMQ_PASSWORD=secret
+
+volumes:
+  redis_data:
+    driver: local

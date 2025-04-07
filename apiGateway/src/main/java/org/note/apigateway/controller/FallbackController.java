@@ -17,4 +17,9 @@ public class FallbackController {
     public String emailServiceFallback() {
         return "Email Service is currently unavailable. Please try again later.";
     }
+    
+    @GetMapping("/fileHandling")
+    public String fileHandlingServiceFallback() {
+        return "File Handling Service is currently unavailable. Please try again later.";
+    }
 }
