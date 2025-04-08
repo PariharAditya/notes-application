@@ -1,5 +1,10 @@
 package org.note.notesapplication.Controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.Parameters;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.note.notesapplication.Service.ReportService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,11 +20,33 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/users/{username}/reports")
 @Slf4j
+@Tag(name = "Report", description = "Report Management endpoints")
 public class ReportController {
 
     @Autowired
     private ReportService reportService;
 
+    @Operation(
+            summary = "Generate notes report",
+            description = "Generates a report of notes for a specific user in the specified format (PDF or HTML).",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Report generated successfully"),
+                    @ApiResponse(responseCode = "400", description = "Invalid input or user not found"),
+                    @ApiResponse(responseCode = "500", description = "Error generating report")
+            }
+    )
+    @Parameters({
+            @Parameter(
+                    name = "username",
+                    description = "Username of the user for whom the report is generated",
+                    required = true
+            ),
+            @Parameter(
+                    name = "format",
+                    description = "Format of the report (PDF or HTML)",
+                    required = true
+            )
+    })
     @GetMapping("/notes/{format}")
     public ResponseEntity<byte[]> generateReport(
             @PathVariable String username,
