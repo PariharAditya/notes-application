@@ -34,9 +34,9 @@ jobs:
       - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          # Using github.token instead of secrets.GITHUB_TOKEN
           GITHUB_TOKEN: ${{ github.token }}
         run: >
           mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar 
           -Dsonar.projectKey=notes-application  
+          -Dsonar.organization=Aditya-Parihar
           -Dsonar.host.url=https://sonarcloud.io
