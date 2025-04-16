@@ -1,16 +1,18 @@
 package org.note.notesapplication.Service;
 
-import org.note.notesapplication.model.userResponse;
 import org.note.notesapplication.Entity.Notes;
 import org.note.notesapplication.Entity.User;
+import org.note.notesapplication.DTO.userResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 /*
@@ -22,8 +24,16 @@ password
 []-list of notes
 for this we'll use DBRef to've linking between two table
 */
+
+/*
+ * for now(11th april 2025) keycloak is not implemented
+ * so we are using username
+
+ * without keycloak we can use session handling, UserIdnetificationFilter
+ * above way not secure just for isolation
+ */
 @Service
-public class notesService {
+public class NotesService {
 
     @Autowired
     private MongoTemplate mongoTemplate;
@@ -33,9 +43,9 @@ public class notesService {
         // Find user
         User user = mongoTemplate.findOne(
                 Query.query(Criteria.where("username").is(username)),
-                User.class
-        );
-        if (user == null) return null;
+                User.class);
+        if (user == null)
+            return null;
 
         // Create note
         Notes note = new Notes();
@@ -57,8 +67,7 @@ public class notesService {
     public List<userResponse> getAllNotesByUser(String username) {
         List<Notes> notes = mongoTemplate.find(
                 Query.query(Criteria.where("username").is(username)),
-                Notes.class
-        );
+                Notes.class);
         return notes.stream().map(this::convertToDTO).toList();
     }
 
@@ -67,8 +76,7 @@ public class notesService {
         Notes note = mongoTemplate.findOne(
                 Query.query(Criteria.where("username").is(username)
                         .and("title").is(title)),
-                Notes.class
-        );
+                Notes.class);
         return note != null ? convertToDTO(note) : null;
     }
 
@@ -77,10 +85,10 @@ public class notesService {
         Notes existingNote = mongoTemplate.findOne(
                 Query.query(Criteria.where("username").is(username)
                         .and("title").is(title)),
-                Notes.class
-        );
+                Notes.class);
 
-        if (existingNote == null) return null;
+        if (existingNote == null)
+            return null;
 
         if (updatedFields.getContent() != null) {
             existingNote.setContent(updatedFields.getContent());
@@ -99,15 +107,13 @@ public class notesService {
         Notes deletedNote = mongoTemplate.findAndRemove(
                 Query.query(Criteria.where("username").is(username)
                         .and("title").is(title)),
-                Notes.class
-        );
+                Notes.class);
 
         if (deletedNote != null) {
             // Remove reference from user's list
             User user = mongoTemplate.findOne(
                     Query.query(Criteria.where("username").is(username)),
-                    User.class
-            );
+                    User.class);
             if (user != null) {
                 user.getNotes().removeIf(note -> note.getId().equals(deletedNote.getId()));
                 mongoTemplate.save(user);
@@ -116,6 +122,27 @@ public class notesService {
         }
 
         return null;
+    }
+
+    public List<userResponse> getNoteByDate(String username, String datestr) {
+        if (datestr == null || datestr.isEmpty())
+            return null;
+        System.out.println(username + " " + datestr);
+        try {
+            LocalDate date = LocalDate.parse(datestr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            LocalDateTime startDate = date.atStartOfDay();
+            LocalDateTime endDate = date.atTime(23, 59, 59);
+
+            List<Notes> notes = mongoTemplate.find(
+                    Query.query(Criteria.where("username").is(username)
+                            .and("createdDate").gte(startDate).lte(endDate)),
+                    Notes.class);
+            return notes.stream().map(this::convertToDTO).toList();
+        } catch (DateTimeParseException e) {
+            // Handle invalid date format
+            System.out.println("Invalid date format: " + e.getMessage());
+            return List.of(); // or throw an exception
+        }
     }
 
     // Helper method

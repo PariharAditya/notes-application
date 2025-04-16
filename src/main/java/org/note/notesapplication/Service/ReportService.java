@@ -11,7 +11,7 @@ import net.sf.jasperreports.engine.type.TextAdjustEnum;
 import net.sf.jasperreports.engine.type.VerticalTextAlignEnum;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleHtmlExporterOutput;
-import org.note.notesapplication.model.userResponse;
+import org.note.notesapplication.DTO.userResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.env.Environment;
@@ -28,7 +28,10 @@ import java.util.Map;
 public class ReportService {
 
     @Autowired
-    private notesService notesService;
+    private NotesService notesService;
+
+    @Autowired
+    private NotificationProducer sendNotification;
 
     @Autowired
     private Environment env;
@@ -124,11 +127,45 @@ public class ReportService {
         }
     }
 
+    public void shareYourNotes(String toEmail, String fromUsername, String title) {
+        try {
+            // Get the note content
+            userResponse note = notesService.getNoteByTitleAndUser(fromUsername, title);
+            if (note == null) {
+                throw new RuntimeException("Note not found: " + title);
+            }
+
+            // Format the email body to include who is sharing it
+            String emailBody = String.format(
+                    """
+                            Note Title: %s
+                            
+                            Shared by: %s
+                            
+                            Content:
+                            %s
+                            
+                            This note was shared from Notes Application.""",
+                    title, fromUsername, note.getContent());
+
+            // Send the email using the fixed sender address configured in SendGrid
+            sendNotification.sendEmail(toEmail, "Note Shared: " + title, emailBody);
+            System.out.println(note.getContent());
+            // Log the successful share
+            System.out.println("Note '" + title + "' shared by " + fromUsername + " to " + toEmail);
+        } catch (Exception e) {
+            System.err.println("Failed to share note: " + e.getMessage());
+            throw new RuntimeException("Failed to share note: " + e.getMessage(), e);
+        }
+    }
+
     /**
-     * Creates a simplified JasperPrint for Docker environment where complex compilation may fail
+     * Creates a simplified JasperPrint for Docker environment where complex
+     * compilation may fail
      */
     private JasperPrint createSimplifiedReport(List<userResponse> notes, String username) throws JRException {
-        // Create a very simple JasperDesign that should compile even in restricted environments
+        // Create a very simple JasperDesign that should compile even in restricted
+        // environments
         JasperDesign design = new JasperDesign();
         design.setName("Simple_Notes_Report");
         design.setPageWidth(595);

@@ -9,8 +9,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.note.notesapplication.Entity.Notes;
 import org.note.notesapplication.Entity.User;
-import org.note.notesapplication.model.userResponse;
-import org.note.notesapplication.Service.notesService;
+import org.note.notesapplication.DTO.userResponse;
+import org.note.notesapplication.Service.NotesService;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 import java.time.LocalDateTime;
@@ -29,7 +29,7 @@ public class NotesServiceTest {
     private MongoTemplate mongoTemplate;
 
     @InjectMocks
-    private notesService service;
+    private NotesService service;
 
     private User testUser;
     private Notes testNote;

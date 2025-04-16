@@ -1,4 +1,4 @@
-package org.note.notesapplication.model;
+package org.note.notesapplication.DTO;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;

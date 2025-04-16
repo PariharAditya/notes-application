@@ -116,7 +116,7 @@ Each service has its own configuration in `application.properties` or `applicati
 ## 🔌 API Endpoints
 
 ### Notes Service
-- `GET /api/notes/{username}` - Get all notes for a user
+- `GET /api/notes/{username}` - Get all notes for a userResponseDto
 - `POST /api/notes/{username}` - Create a new note
 - `PUT /api/notes/{username}/{id}` - Update a note
 - `DELETE /api/notes/{username}/{id}` - Delete a note

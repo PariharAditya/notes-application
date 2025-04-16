@@ -1,9 +1,8 @@
 package org.note.notesapplication.Service;
 
-import org.note.notesapplication.model.EmailRequest;
-import org.note.notesapplication.model.SmsRequest;
+import org.note.notesapplication.DTO.EmailRequest;
+import org.note.notesapplication.DTO.SmsRequest;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,7 +14,6 @@ public class NotificationProducer {
     private static final String SMS_ROUTING_KEY = "notification.sms";
 
     // prevents the service from being instantiated without this dependency.
-    @Autowired
     public NotificationProducer(RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
     }
