@@ -12,6 +12,7 @@ import net.sf.jasperreports.engine.type.VerticalTextAlignEnum;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimpleHtmlExporterOutput;
 import org.note.notesapplication.DTO.userResponse;
+import org.note.notesapplication.Util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.env.Environment;
@@ -36,6 +37,9 @@ public class ReportService {
     @Autowired
     private Environment env;
 
+    @Autowired
+    private JwtUtil util;
+
     private boolean isDockerEnvironment = false;
 
     @PostConstruct
@@ -57,14 +61,19 @@ public class ReportService {
         }
     }
 
-    @Cacheable(value = "notesReport", key = "#username + '-' + #reportFormat")
-    public byte[] generateNotesReport(String username, String reportFormat) throws JRException {
+
+    // Uses Spring Expression Language (SpEL) to call a static method that retrieves the currently authenticated username.
+    @Cacheable(value = "notesReport", key = "#reportFormat")
+    public byte[] generateNotesReport(String reportFormat) throws JRException {
         try {
+            String username = util.getCurrentUsername();
+            String cacheKey = username + "-" + reportFormat;
+            log.info("Using cache key: {}", cacheKey);
             log.info("Starting report generation for user {} in format {}", username, reportFormat);
             long startTime = System.currentTimeMillis();
 
             // Get notes for the user
-            List<userResponse> notes = notesService.getAllNotesByUser(username);
+            List<userResponse> notes = notesService.getAllNotesByUser();
             log.info("Retrieved {} notes for user {}", notes.size(), username);
 
             JasperPrint jasperPrint;
@@ -127,15 +136,18 @@ public class ReportService {
         }
     }
 
-    public void shareYourNotes(String toEmail, String fromUsername, String title) {
+    public void shareYourNotes(String toEmail, String title) {
         try {
+            // Get current username from JWT token
+            String fromUsername = util.getCurrentUsername();
+
             // Get the note content
-            userResponse note = notesService.getNoteByTitleAndUser(fromUsername, title);
+            userResponse note = notesService.getNoteByTitleAndUser(title);
             if (note == null) {
                 throw new RuntimeException("Note not found: " + title);
             }
 
-            // Format the email body to include who is sharing it
+            // Format the email body
             String emailBody = String.format(
                     """
                             Note Title: %s
@@ -150,14 +162,15 @@ public class ReportService {
 
             // Send the email using the fixed sender address configured in SendGrid
             sendNotification.sendEmail(toEmail, "Note Shared: " + title, emailBody);
-            System.out.println(note.getContent());
+
             // Log the successful share
-            System.out.println("Note '" + title + "' shared by " + fromUsername + " to " + toEmail);
+            log.info("Note '{}' shared by {} to {}", title, fromUsername, toEmail);
         } catch (Exception e) {
-            System.err.println("Failed to share note: " + e.getMessage());
+            log.error("Failed to share note: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to share note: " + e.getMessage(), e);
         }
     }
+
 
     /**
      * Creates a simplified JasperPrint for Docker environment where complex

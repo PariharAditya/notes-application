@@ -1,8 +1,11 @@
 package org.note.notesapplication.Service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.note.notesapplication.Entity.Notes;
 import org.note.notesapplication.Entity.User;
 import org.note.notesapplication.DTO.userResponse;
+import org.note.notesapplication.Util.JwtUtil;
+import org.note.notesapplication.Util.NoteCreationUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -26,45 +29,64 @@ for this we'll use DBRef to've linking between two table
 */
 
 /*
- * for now(11th april 2025) keycloak is not implemented
+ * keycloak is implemented 16-04-2025
  * so we are using username
-
  * without keycloak we can use session handling, UserIdnetificationFilter
  * above way not secure just for isolation
  */
 @Service
+@Slf4j
 public class NotesService {
 
     @Autowired
     private MongoTemplate mongoTemplate;
 
+    @Autowired
+    private JwtUtil util;
+
+    @Autowired
+    private NoteCreationUtil notesUtil;
+
     // Create note for a specific user
-    public userResponse saveNotes(String username, userResponse response) {
-        // Find user
-        User user = mongoTemplate.findOne(
-                Query.query(Criteria.where("username").is(username)),
-                User.class);
-        if (user == null)
+    public userResponse saveNotes(userResponse noteDto) {
+        try {
+            // Get username from security context
+            String username = util.getCurrentUsername();
+            log.debug("Saving note for user: {}", username);
+
+            // Convert DTO to entity
+            Notes note = new Notes();
+            note.setTitle(noteDto.getTitle());
+            note.setContent(noteDto.getContent());
+            note.setUsername(username);
+            note.setCreatedDate(LocalDateTime.now());
+
+            // Save the note entity
+            Notes savedNote = mongoTemplate.save(note);
+
+            // Update user's notes list
+            User user = mongoTemplate.findOne(
+                    Query.query(Criteria.where("username").is(username)),
+                    User.class);
+
+            if (user != null) {
+                user.getNotes().add(savedNote);
+                mongoTemplate.save(user);
+            } else {
+                log.warn("User not found in database: {}", username);
+            }
+
+            return convertToDTO(savedNote);
+        } catch (Exception e) {
+            log.error("Error saving note: {}", e.getMessage(), e);
             return null;
-
-        // Create note
-        Notes note = new Notes();
-        note.setTitle(response.getTitle());
-        note.setContent(response.getContent());
-        note.setUsername(username);
-        note.setCreatedDate(LocalDateTime.now());
-
-        Notes savedNote = mongoTemplate.save(note);
-
-        // Add note to user's list
-        user.getNotes().add(savedNote);
-        mongoTemplate.save(user);
-
-        return convertToDTO(savedNote);
+        }
     }
 
     // Get all notes for a user
-    public List<userResponse> getAllNotesByUser(String username) {
+    public List<userResponse> getAllNotesByUser() {
+        String username = util.getCurrentUsername();
+
         List<Notes> notes = mongoTemplate.find(
                 Query.query(Criteria.where("username").is(username)),
                 Notes.class);
@@ -72,7 +94,8 @@ public class NotesService {
     }
 
     // Get a specific note by title for a user
-    public userResponse getNoteByTitleAndUser(String username, String title) {
+    public userResponse getNoteByTitleAndUser(String title) {
+        String username = util.getCurrentUsername();
         Notes note = mongoTemplate.findOne(
                 Query.query(Criteria.where("username").is(username)
                         .and("title").is(title)),
@@ -81,7 +104,8 @@ public class NotesService {
     }
 
     // Update note for a user
-    public userResponse updateNotes(String username, String title, userResponse updatedFields) {
+    public userResponse updateNotes(String title, userResponse updatedFields) {
+        String username = util.getCurrentUsername();
         Notes existingNote = mongoTemplate.findOne(
                 Query.query(Criteria.where("username").is(username)
                         .and("title").is(title)),
@@ -103,7 +127,8 @@ public class NotesService {
     }
 
     // Delete a note for a user
-    public userResponse deleteNote(String username, String title) {
+    public userResponse deleteNote(String title) {
+        String username = util.getCurrentUsername();
         Notes deletedNote = mongoTemplate.findAndRemove(
                 Query.query(Criteria.where("username").is(username)
                         .and("title").is(title)),
@@ -124,9 +149,10 @@ public class NotesService {
         return null;
     }
 
-    public List<userResponse> getNoteByDate(String username, String datestr) {
+    public List<userResponse> getNoteByDate(String datestr) {
         if (datestr == null || datestr.isEmpty())
             return null;
+        String username = util.getCurrentUsername();
         System.out.println(username + " " + datestr);
         try {
             LocalDate date = LocalDate.parse(datestr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
@@ -147,19 +173,6 @@ public class NotesService {
 
     // Helper method
     private userResponse convertToDTO(Notes note) {
-        userResponse response = new userResponse();
-        response.setTitle(note.getTitle());
-        response.setContent(note.getContent());
-        response.setCreatedDate(note.getCreatedDate());
-
-        // Handle null dates
-        if (note.getCreatedDate() != null) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-            response.setFormattedDate(note.getCreatedDate().format(formatter));
-        } else {
-            response.setFormattedDate("No date available");
-        }
-
-        return response;
+        return notesUtil.convertToDTO(note);
     }
 }

@@ -95,11 +95,11 @@ public class NotificationController {
                                         @ApiResponse(responseCode = "404", description = "Note not found or user not found")
 
                         })
-        public ResponseEntity<String> shareNote(@RequestParam String username,
+        public ResponseEntity<String> shareNote(
                         @PathVariable String title,
                         @RequestParam String toEmail) {
                 try {
-                        reportService.shareYourNotes(toEmail, username, title);
+                        reportService.shareYourNotes(toEmail,  title);
                         return ResponseEntity.ok("Note shared successfully");
                 } catch (Exception e) {
                         return ResponseEntity.notFound().build();

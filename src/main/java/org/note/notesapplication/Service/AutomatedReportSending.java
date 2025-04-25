@@ -37,8 +37,9 @@ public class AutomatedReportSending {
 
         for (User user : users) {
 
+
             try {
-                byte[] reportContent = reportService.generateNotesReport(user.getUsername(), "pdf");
+                byte[] reportContent = reportService.generateNotesReport("pdf");
 
                 String currentDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm"));
                 String subject = "Your Notes Report - " + currentDate;
